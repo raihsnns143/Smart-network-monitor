@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Live Monitor — NetGuard{% endblock %}
+{% block page_title %}<i class="bi bi-broadcast me-2 text-success"></i>Real-Time Monitor{% endblock %}
+
+{% block content %}
+<!-- ══ STAT STRIP ══ -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="mini-stat bg-primary-subtle border border-primary rounded-3 p-3 text-center">
+      <div class="fs-2 fw-bold text-primary" id="rt-total">{{ total }}</div>
+      <small class="text-muted">Total Devices</small>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mini-stat bg-success-subtle border border-success rounded-3 p-3 text-center">
+      <div class="fs-2 fw-bold text-success" id="rt-online">{{ online }}</div>
+      <small class="text-muted">Online</small>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mini-stat bg-secondary-subtle border border-secondary rounded-3 p-3 text-center">
+      <div class="fs-2 fw-bold text-secondary" id="rt-offline">{{ offline }}</div>
+      <small class="text-muted">Offline</small>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mini-stat bg-danger-subtle border border-danger rounded-3 p-3 text-center">
+      <div class="fs-2 fw-bold text-danger" id="rt-alerts">—</div>
+      <small class="text-muted">Unread Alerts</small>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONTROLS ══ -->
+<div class="card glass-card mb-4">
+  <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+    <!-- Manual Scan -->
+    <form action="{{ url_for('monitor.trigger_scan') }}" method="POST" id="scanForm">
+      <button type="submit" class="btn btn-gradient" id="scanBtn">
+        <i class="bi bi-radar me-1"></i> Run Network Scan
+      </button>
+    </form>
+
+    <!-- Auto-refresh toggle -->
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+      <label class="form-check-label" for="autoRefresh">
+        Auto-refresh <span class="text-muted small">(every {{ scan_interval }}s)</span>
+      </label>
+    </div>
+
+    <!-- Countdown -->
+    <div class="ms-auto text-muted small" id="refreshCountdown">
+      Next refresh: <strong id="countdown">{{ scan_interval }}</strong>s
+    </div>
+
+    <!-- Last updated -->
+    <div class="text-muted small">
+      Last updated: <span id="lastUpdated">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DEVICE TABLE ══ -->
+<div class="card glass-card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-2"></i>Live Device Table</span>
+    <div class="input-group input-group-sm w-auto">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input type="text" class="form-control" id="liveSearch" placeholder="Filter…" style="width:180px">
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="deviceTable">
+        <thead class="table-header-dark">
+          <tr>
+            <th>#</th>
+            <th>Status</th>
+            <th>IP Address</th>
+            <th>Hostname</th>
+            <th>MAC Address</th>
+            <th>Vendor</th>
+            <th>Type</th>
+            <th>Last Seen</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="deviceTableBody">
+          {% for device in recent %}
+          <tr class="device-row" data-status="{{ device.status }}">
+            <td><span class="text-muted small">{{ loop.index }}</span></td>
+            <td>
+              <span class="status-dot status-dot--{{ device.status }}"></span>
+              <span class="badge bg-{{ device.status_badge }} ms-1">{{ device.status }}</span>
+            </td>
+            <td><code class="text-info">{{ device.ip_address }}</code></td>
+            <td>
+              {{ device.hostname }}
+              {% if device.is_trusted %}
+                <i class="bi bi-patch-check-fill text-success ms-1" title="Trusted"></i>
+              {% endif %}
+              {% if device.is_blocked %}
+                <i class="bi bi-slash-circle text-danger ms-1" title="Blocked"></i>
+              {% endif %}
+            </td>
+            <td><code class="small">{{ device.mac_address }}</code></td>
+            <td><span class="text-muted small">{{ device.vendor[:22] }}</span></td>
+            <td>
+              <span class="badge bg-info-subtle text-info border border-info">
+                {{ device.device_type }}
+              </span>
+            </td>
+            <td><small class="text-muted">{{ device.last_seen.strftime('%H:%M:%S') }}</small></td>
+            <td>
+              <a href="{{ url_for('devices.detail', device_id=device.id) }}"
+                 class="btn btn-sm btn-outline-primary" title="View Details">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-5">
+              <i class="bi bi-radar fs-1 d-block mb-3 text-primary opacity-50"></i>
+              No devices found yet. Click <strong>Run Network Scan</strong> to discover devices.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW DEVICE TOAST ══ -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="newDeviceToast" class="toast align-items-center text-white bg-warning border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastMessage">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        New device detected on the network!
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SCAN_INTERVAL = {{ scan_interval }};
+const STATUS_URL    = "{{ url_for('monitor.api_status') }}";
+
+let countdown  = SCAN_INTERVAL;
+let autoActive = true;
+let prevOnline = {{ online }};
+
+const countdownEl  = document.getElementById("countdown");
+const lastUpdEl    = document.getElementById("lastUpdated");
+const autoToggle   = document.getElementById("autoRefresh");
+const liveSearch   = document.getElementById("liveSearch");
+const tbody        = document.getElementById("deviceTableBody");
+const toast        = new bootstrap.Toast(document.getElementById("newDeviceToast"));
+
+// ── Auto-refresh countdown ──────────────────────────────────────────────────
+const timer = setInterval(() => {
+  if (!autoActive) return;
+  countdown--;
+  if (countdownEl) countdownEl.textContent = countdown;
+  if (countdown <= 0) {
+    countdown = SCAN_INTERVAL;
+    fetchStatus();
+  }
+}, 1000);
+
+autoToggle.addEventListener("change", e => {
+  autoActive = e.target.checked;
+  document.getElementById("refreshCountdown").style.opacity = autoActive ? "1" : "0.4";
+});
+
+// ── Fetch & render status ───────────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const resp = await fetch(STATUS_URL);
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    document.getElementById("rt-total").textContent   = data.total;
+    document.getElementById("rt-online").textContent  = data.online;
+    document.getElementById("rt-offline").textContent = data.offline;
+    document.getElementById("rt-alerts").textContent  = data.unread_alerts;
+    if (lastUpdEl) lastUpdEl.textContent = data.timestamp;
+
+    // Toast on new device
+    if (data.online > prevOnline) {
+      document.getElementById("toastMessage").innerHTML =
+        `<i class="bi bi-exclamation-triangle me-2"></i>
+         ${data.online - prevOnline} new device(s) detected!`;
+      toast.show();
+    }
+    prevOnline = data.online;
+
+    // Rebuild table rows
+    if (data.devices && data.devices.length > 0) {
+      tbody.innerHTML = data.devices.map((d, i) => `
+        <tr class="device-row" data-status="${d.status}">
+          <td><span class="text-muted small">${i + 1}</span></td>
+          <td>
+            <span class="status-dot status-dot--${d.status}"></span>
+            <span class="badge bg-${d.status === 'online' ? 'success' : 'secondary'} ms-1">${d.status}</span>
+          </td>
+          <td><code class="text-info">${d.ip}</code></td>
+          <td>${d.hostname} ${d.is_trusted ? '<i class="bi bi-patch-check-fill text-success ms-1"></i>' : ''}
+              ${d.is_blocked ? '<i class="bi bi-slash-circle text-danger ms-1"></i>' : ''}</td>
+          <td><code class="small">${d.mac}</code></td>
+          <td><span class="text-muted small">${(d.vendor||'').substring(0,22)}</span></td>
+          <td><span class="badge bg-info-subtle text-info border border-info">${d.type}</span></td>
+          <td><small class="text-muted">${d.last_seen || '—'}</small></td>
+          <td>
+            <a href="/devices/${d.id}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>`).join("");
+      applySearch();
+    }
+  } catch(err) { console.warn("Status fetch failed:", err); }
+}
+
+// ── Live search filter ──────────────────────────────────────────────────────
+function applySearch() {
+  const q = (liveSearch.value || "").toLowerCase();
+  document.querySelectorAll("#deviceTableBody tr.device-row").forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? "" : "none";
+  });
+}
+liveSearch.addEventListener("input", applySearch);
+
+// ── Scan button loading state ───────────────────────────────────────────────
+document.getElementById("scanForm").addEventListener("submit", () => {
+  const btn = document.getElementById("scanBtn");
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scanning…';
+  btn.disabled  = true;
+});
+</script>
+{% endblock %}

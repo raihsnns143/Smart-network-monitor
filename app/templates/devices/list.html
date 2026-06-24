@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Devices — NetGuard{% endblock %}
+{% block page_title %}<i class="bi bi-hdd-network me-2 text-info"></i>Device Management{% endblock %}
+
+{% block content %}
+<!-- ══ FILTER BAR ══ -->
+<div class="card glass-card mb-4">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('devices.list_devices') }}"
+          class="row g-3 align-items-end" id="filterForm">
+
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Search</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" class="form-control glass-input"
+                 placeholder="IP, MAC, hostname, vendor…"
+                 value="{{ q }}">
+        </div>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Status</label>
+        <select name="status" class="form-select glass-input">
+          <option value="">All</option>
+          <option value="online"  {% if status  == 'online'  %}selected{% endif %}>🟢 Online</option>
+          <option value="offline" {% if status  == 'offline' %}selected{% endif %}>⚫ Offline</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Category</label>
+        <select name="category" class="form-select glass-input">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+          <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Trust</label>
+        <select name="trusted" class="form-select glass-input">
+          <option value="">All</option>
+          <option value="yes" {% if trusted == 'yes' %}selected{% endif %}>✅ Trusted</option>
+          <option value="no"  {% if trusted == 'no'  %}selected{% endif %}>❓ Untrusted</option>
+        </select>
+      </div>
+
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-gradient flex-grow-1">
+          <i class="bi bi-funnel"></i> Filter
+        </button>
+        <a href="{{ url_for('devices.list_devices') }}" class="btn btn-outline-secondary" title="Clear">
+          <i class="bi bi-x-circle"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══ DEVICE TABLE ══ -->
+<div class="card glass-card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>
+      <i class="bi bi-table me-2"></i>
+      Devices
+      <span class="badge bg-primary ms-2">{{ devices.total }}</span>
+    </span>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('reports.export_devices_csv') }}" class="btn btn-sm btn-outline-success">
+        <i class="bi bi-download me-1"></i>Export CSV
+      </a>
+      <form action="{{ url_for('monitor.trigger_scan') }}" method="POST" class="d-inline">
+        <button type="submit" class="btn btn-sm btn-gradient">
+          <i class="bi bi-radar me-1"></i>Scan Now
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-header-dark">
+          <tr>
+            <th>#</th>
+            <th>Status</th>
+            <th>IP Address</th>
+            <th>Hostname</th>
+            <th>MAC Address</th>
+            <th>Vendor</th>
+            <th>Category</th>
+            <th>Trust</th>
+            <th>Last Seen</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for device in devices.items %}
+          <tr>
+            <td class="text-muted small">{{ loop.index + (devices.page - 1) * devices.per_page }}</td>
+            <td>
+              <span class="status-dot status-dot--{{ device.status }}"></span>
+              <span class="badge bg-{{ device.status_badge }}">{{ device.status }}</span>
+            </td>
+            <td><code class="text-info">{{ device.ip_address }}</code></td>
+            <td>
+              <strong>{{ device.hostname }}</strong>
+              {% if device.is_blocked %}
+              <span class="badge bg-danger ms-1 small">Blocked</span>
+              {% endif %}
+            </td>
+            <td><code class="small text-muted">{{ device.mac_address }}</code></td>
+            <td>
+              <span class="small">{{ device.vendor[:25] }}</span>
+            </td>
+            <td>
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary small">
+                {{ device.category }}
+              </span>
+            </td>
+            <td class="text-center">
+              {% if device.is_trusted %}
+                <i class="bi bi-patch-check-fill text-success fs-5" title="Trusted"></i>
+              {% else %}
+                <i class="bi bi-question-circle text-warning fs-5" title="Untrusted"></i>
+              {% endif %}
+            </td>
+            <td><small class="text-muted">{{ device.last_seen.strftime('%m-%d %H:%M') }}</small></td>
+            <td>
+              <a href="{{ url_for('devices.detail', device_id=device.id) }}"
+                 class="btn btn-sm btn-outline-primary" title="View / Edit">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="10" class="text-center py-5 text-muted">
+              <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+              No devices match your filters.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if devices.pages > 1 %}
+  <div class="card-footer d-flex justify-content-between align-items-center">
+    <small class="text-muted">
+      Showing {{ (devices.page - 1) * devices.per_page + 1 }}–{{ min(devices.page * devices.per_page, devices.total) }}
+      of {{ devices.total }}
+    </small>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {% if not devices.has_prev %}disabled{% endif %}">
+          <a class="page-link"
+             href="{{ url_for('devices.list_devices', page=devices.prev_num, q=q, status=status, category=category, trusted=trusted) }}">
+            &laquo;
+          </a>
+        </li>
+        {% for p in devices.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if p %}
+          <li class="page-item {% if p == devices.page %}active{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('devices.list_devices', page=p, q=q, status=status, category=category, trusted=trusted) }}">
+              {{ p }}
+            </a>
+          </li>
+          {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+        <li class="page-item {% if not devices.has_next %}disabled{% endif %}">
+          <a class="page-link"
+             href="{{ url_for('devices.list_devices', page=devices.next_num, q=q, status=status, category=category, trusted=trusted) }}">
+            &raquo;
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

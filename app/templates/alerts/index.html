@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Alerts — NetGuard{% endblock %}
+{% block page_title %}<i class="bi bi-bell me-2 text-danger"></i>Alert Centre{% endblock %}
+
+{% block content %}
+<!-- ══ FILTER BAR ══ -->
+<div class="card glass-card mb-4">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('alerts.index') }}" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Severity</label>
+        <select name="severity" class="form-select glass-input">
+          <option value="">All Severities</option>
+          <option value="critical" {% if severity == 'critical' %}selected{% endif %}>🔴 Critical</option>
+          <option value="high"     {% if severity == 'high'     %}selected{% endif %}>🟠 High</option>
+          <option value="medium"   {% if severity == 'medium'   %}selected{% endif %}>🟡 Medium</option>
+          <option value="low"      {% if severity == 'low'      %}selected{% endif %}>🟢 Low</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Type</label>
+        <select name="type" class="form-select glass-input">
+          <option value="">All Types</option>
+          <option value="unknown_device"  {% if atype == 'unknown_device'  %}selected{% endif %}>Unknown Device</option>
+          <option value="new_device"      {% if atype == 'new_device'      %}selected{% endif %}>New Device</option>
+          <option value="blocked_device"  {% if atype == 'blocked_device'  %}selected{% endif %}>Blocked Device</option>
+          <option value="port_scan"       {% if atype == 'port_scan'       %}selected{% endif %}>Port Scan</option>
+          <option value="ip_conflict"     {% if atype == 'ip_conflict'     %}selected{% endif %}>IP Conflict</option>
+          <option value="high_traffic"    {% if atype == 'high_traffic'    %}selected{% endif %}>High Traffic</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Read Status</label>
+        <select name="read" class="form-select glass-input">
+          <option value="">All</option>
+          <option value="unread" {% if is_read == 'unread' %}selected{% endif %}>Unread</option>
+          <option value="read"   {% if is_read == 'read'   %}selected{% endif %}>Read</option>
+        </select>
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-gradient flex-grow-1">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        <a href="{{ url_for('alerts.index') }}" class="btn btn-outline-secondary" title="Clear">
+          <i class="bi bi-x-circle"></i>
+        </a>
+        <form action="{{ url_for('alerts.read_all') }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-outline-info" title="Mark all read">
+            <i class="bi bi-check-all"></i>
+          </button>
+        </form>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══ ALERT CARDS ══ -->
+{% if unread_count > 0 %}
+<div class="alert alert-warning d-flex align-items-center mb-4">
+  <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+  <div>
+    <strong>{{ unread_count }} unread alert{{ 's' if unread_count != 1 else '' }}</strong>
+    require your attention.
+  </div>
+  <form action="{{ url_for('alerts.read_all') }}" method="POST" class="ms-auto">
+    <button type="submit" class="btn btn-sm btn-warning">
+      <i class="bi bi-check-all me-1"></i>Mark All Read
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  {% for alert in alerts.items %}
+  <div class="col-12">
+    <div class="card glass-card alert-card
+         {% if not alert.is_read %}border-start border-4 border-{{ alert.severity_color }}{% endif %}">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-start gap-3">
+          <!-- Severity Icon -->
+          <div class="alert-icon alert-icon--{{ alert.severity }}">
+            {% if alert.severity == 'critical' %}<i class="bi bi-exclamation-octagon-fill"></i>
+            {% elif alert.severity == 'high' %}<i class="bi bi-exclamation-triangle-fill"></i>
+            {% elif alert.severity == 'medium' %}<i class="bi bi-exclamation-circle-fill"></i>
+            {% else %}<i class="bi bi-info-circle-fill"></i>{% endif %}
+          </div>
+
+          <!-- Content -->
+          <div class="flex-grow-1 min-w-0">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+              <span class="badge bg-{{ alert.severity_color }}">{{ alert.severity|upper }}</span>
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary small">
+                {{ alert.alert_type|replace('_', ' ')|title }}
+              </span>
+              {% if not alert.is_read %}
+              <span class="badge bg-danger">NEW</span>
+              {% endif %}
+              {% if alert.is_resolved %}
+              <span class="badge bg-success"><i class="bi bi-check me-1"></i>Resolved</span>
+              {% endif %}
+            </div>
+
+            <h6 class="fw-semibold mb-1">{{ alert.title }}</h6>
+            <p class="text-muted small mb-1">{{ alert.message[:200] }}</p>
+
+            <div class="d-flex gap-3 small text-muted">
+              <span><i class="bi bi-clock me-1"></i>{{ alert.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+              {% if alert.device %}
+              <a href="{{ url_for('devices.detail', device_id=alert.device.id) }}"
+                 class="text-info text-decoration-none">
+                <i class="bi bi-cpu me-1"></i>{{ alert.device.ip_address }}
+              </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="d-flex flex-column gap-2">
+            {% if not alert.is_read %}
+            <form action="{{ url_for('alerts.mark_read', alert_id=alert.id) }}" method="POST">
+              <button class="btn btn-sm btn-outline-secondary w-100" title="Mark as read">
+                <i class="bi bi-eye me-1"></i>Read
+              </button>
+            </form>
+            {% endif %}
+            {% if not alert.is_resolved %}
+            <form action="{{ url_for('alerts.resolve', alert_id=alert.id) }}" method="POST">
+              <button class="btn btn-sm btn-outline-success w-100" title="Resolve alert">
+                <i class="bi bi-check-circle me-1"></i>Resolve
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="col-12">
+    <div class="card glass-card text-center py-5">
+      <div class="card-body">
+        <i class="bi bi-shield-check fs-1 text-success d-block mb-3 opacity-75"></i>
+        <h5 class="text-success">All Clear!</h5>
+        <p class="text-muted">No alerts match your current filters.</p>
+        <a href="{{ url_for('alerts.index') }}" class="btn btn-outline-primary">
+          <i class="bi bi-arrow-left me-1"></i>View All Alerts
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if alerts.pages > 1 %}
+<nav class="mt-4 d-flex justify-content-center">
+  <ul class="pagination">
+    <li class="page-item {% if not alerts.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('alerts.index', page=alerts.prev_num, severity=severity, type=atype, read=is_read) }}">&laquo;</a>
+    </li>
+    {% for p in alerts.iter_pages(left_edge=1, right_edge=1) %}
+      {% if p %}
+      <li class="page-item {% if p == alerts.page %}active{% endif %}">
+        <a class="page-link" href="{{ url_for('alerts.index', page=p, severity=severity, type=atype, read=is_read) }}">{{ p }}</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not alerts.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('alerts.index', page=alerts.next_num, severity=severity, type=atype, read=is_read) }}">&raquo;</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}
