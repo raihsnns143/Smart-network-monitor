@@ -204,7 +204,7 @@ const backdrop = document.getElementById("sidebarBackdrop");
 
 if (toggleBtn) {
   toggleBtn.addEventListener("click", () => {
-    if (window.innerWidth <= 576) {
+    if (window.innerWidth <= 991) {
       sidebar.classList.toggle("mobile-open");
       if (sidebar.classList.contains("mobile-open")) {
         backdrop.classList.add("show");

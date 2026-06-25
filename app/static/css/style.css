@@ -534,23 +534,10 @@ code              { background: rgba(255,255,255,0.08); padding: 2px 6px; border
 .w-40 { width: 40%; }
 
 /* ══════════════════════════════════════════════════════════════
-   RESPONSIVE — TABLET (768px)
+   RESPONSIVE — TABLET & MOBILE (Max 991px)
 ══════════════════════════════════════════════════════════════ */
 @media (max-width: 991px) {
-  .sidebar { width: var(--sidebar-w-col); }
-  .sidebar .brand-text,
-  .sidebar .sidebar-link span:not(.badge),
-  .sidebar .user-info { display: none; }
-  .sidebar .sidebar-link { justify-content: center; }
-  .main-wrapper { margin-left: var(--sidebar-w-col); }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   RESPONSIVE — MOBILE (576px) — Bottom Nav Bar
-══════════════════════════════════════════════════════════════ */
-@media (max-width: 576px) {
-
-  /* ── Hide left sidebar initially on mobile ── */
+  /* ── Hide left sidebar initially ── */
   .sidebar {
     position: fixed;
     top: 0; left: 0;
@@ -561,7 +548,7 @@ code              { background: rgba(255,255,255,0.08); padding: 2px 6px; border
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .sidebar.mobile-open {
-    transform: translateX(0);
+    transform: translateX(0) !important;
   }
 
   /* ── Show text/icons inside mobile sidebar ── */
@@ -572,8 +559,15 @@ code              { background: rgba(255,255,255,0.08); padding: 2px 6px; border
   .sidebar .user-avatar { margin: 0 !important; }
 
   /* ── Main content takes full width ── */
+  .main-wrapper { margin-left: 0 !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE ONLY (Max 576px) — Bottom Nav Bar
+══════════════════════════════════════════════════════════════ */
+@media (max-width: 576px) {
+  /* ── Content area padding for bottom nav ── */
   .main-wrapper {
-    margin-left: 0 !important;
     padding-bottom: 70px; /* space for bottom nav */
   }
 
