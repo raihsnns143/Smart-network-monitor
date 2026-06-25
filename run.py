@@ -73,16 +73,18 @@ def seed_demo_data() -> None:
                 last_seen   = now - timedelta(minutes=i * 7),
             )
             db.session.add(device)
-            db.session.flush()
+            db.session.commit()  # commit first so device.id is assigned
 
             # Seed logs
             for j in range(5):
-                db.session.add(DeviceLog(
+                log = DeviceLog(
                     device_id  = device.id,
                     event_type = "online" if j % 2 == 0 else "offline",
                     ip_address = d["ip"],
                     logged_at  = now - timedelta(hours=j * 6),
-                ))
+                )
+                db.session.add(log)
+            db.session.commit()  # commit logs separately
 
         # Seed unknown device alert
         db.session.add(Alert(
