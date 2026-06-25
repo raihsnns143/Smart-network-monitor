@@ -118,7 +118,7 @@ class DeviceLog(db.Model):
     """Immutable audit log of online/offline events."""
     __tablename__ = "device_logs"
 
-    id         = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
     device_id  = db.Column(db.Integer, db.ForeignKey("devices.id", ondelete="CASCADE"),
                            nullable=False, index=True)
     event_type = db.Column(
